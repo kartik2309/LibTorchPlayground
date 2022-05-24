@@ -1,4 +1,3 @@
-#include <fstream>
 #include <iostream>
 
 #include "CIFAR/Dataset/CIFARTorchDataset.h"
@@ -39,13 +38,14 @@ int main() {
                                           dropout,
                                           numClasses);
 
-
-  auto *trainer = new Trainer<BlockConvNet*, CIFARTorchDataset, torch::data::transforms::Stack<>, torch::data::samplers::SequentialSampler>(
-      blockConvModel,
-      *trainDataset,
-      *evalDataset,
-      32,
-      5e-5);
+  auto *trainer = new Trainer<BlockConvNet *,
+                              CIFARTorchDataset,
+                              torch::data::transforms::Stack<>,
+                              torch::data::samplers::SequentialSampler>(blockConvModel,
+                                                                        *trainDataset,
+                                                                        *evalDataset,
+                                                                        32,
+                                                                        5e-5);
   trainer->fit(16);
 
   return 0;

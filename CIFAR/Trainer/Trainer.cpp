@@ -97,7 +97,7 @@ Trainer<TorchModule, TorchDataset, DatasetTransformation, Sampler>::Trainer(Torc
   model_ = model;
   lr_ = lr;
   trainDataLoader_ = setup_data_loader(trainDataset, batchSize);
-  evalDataLoader_ = setup_data_loader(evalDataset, batchSize);
+  evalDataLoader_ = setup_data_loader(evalDataset, 1);
 
   torch::nn::CrossEntropyLossOptions crossEntropyLossOptions = torch::nn::CrossEntropyLossOptions().reduction(torch::kMean);
   crossEntropyLoss = new torch::nn::CrossEntropyLoss(crossEntropyLossOptions);

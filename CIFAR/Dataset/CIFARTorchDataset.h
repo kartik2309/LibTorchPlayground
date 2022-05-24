@@ -8,6 +8,8 @@
 #include <exception>
 #include <filesystem>
 #include <string>
+#include <algorithm>
+#include <random>
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
