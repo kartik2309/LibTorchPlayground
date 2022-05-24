@@ -45,8 +45,8 @@ int main() {
       *trainDataset,
       *evalDataset,
       32,
-      5e-3);
-  trainer->fit(1);
+      5e-5);
+  trainer->fit(16);
 
   return 0;
 }
