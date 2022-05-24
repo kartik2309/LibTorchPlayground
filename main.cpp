@@ -1,14 +1,11 @@
-#include <iostream>
 
-#include "CIFAR/Dataset/CIFARTorchDataset.h"
-#include "CIFAR/Models/BlockConvNet/BlockConvNet.h"
-#include "CIFAR/Trainer/Trainer.h"
+#include "CIFAR/cifar.hpp"
 
 int main() {
 
   // Create Datasets
-  std::string cifar_path_train = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/train";
-  std::string cifar_path_test = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/test";
+  std::string cifar_path_train = "/path/to/train/dataset";
+  std::string cifar_path_test = "/path/to/test/dataset";
 
   auto *trainDataset = new CIFARTorchDataset(cifar_path_train);
   auto *evalDataset = new CIFARTorchDataset(cifar_path_test);
@@ -38,6 +35,10 @@ int main() {
                                           dropout,
                                           numClasses);
 
+
+  std::string save_path = "/path/to/save";
+  blockConvModel->load_model(save_path);
+
   auto *trainer = new Trainer<BlockConvNet *,
                               CIFARTorchDataset,
                               torch::data::transforms::Stack<>,
@@ -46,7 +47,8 @@ int main() {
                                                                         *evalDataset,
                                                                         32,
                                                                         5e-5);
-  trainer->fit(16);
+  trainer->fit(1);
+  blockConvModel->load_model(save_path);
 
   return 0;
 }

@@ -116,7 +116,8 @@ std::vector<CIFARTorchDataset::SampleStruct> CIFARTorchDataset::generate_sample_
     std::vector<CIFARTorchDataset::DataPathStruct> &dataPaths) {
   std::vector<SampleStruct> sampleStructs;
   int target_id;
-  auto random = std::default_random_engine {};
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  auto random = std::default_random_engine(seed);
 
   for (DataPathStruct &data_path_struct : dataPaths) {
     std::string targetPath = data_path_struct.targetPath_;
@@ -148,7 +149,7 @@ int CIFARTorchDataset::get_encoded_target(std::string &target_) {
     break;
   }
   if (target_id == -1) {
-    throw std::exception();
+    throw std::runtime_error("Target not found in the encoding!");
   }
   return target_id;
 }

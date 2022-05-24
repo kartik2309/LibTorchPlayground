@@ -29,6 +29,23 @@ std::vector<std::vector<int64_t>> BlockConvNet::get_interim(std::vector<int64_t>
   return interimSizes;
 }
 
+std::string BlockConvNet::handle_path(std::string &path){
+  std::filesystem::directory_entry de(path.c_str());
+  if (de.is_directory()){
+    if (path.back() == '/'){
+      path.append("BlockConvNet.pt");
+      return path;
+    }
+    path.append("/BlockConvNet.pt");
+    return path;
+  }
+
+  if (path.substr(path.length() - 3, path.length() - 1) != ".pt"){
+    path = path.append(".pt");
+  }
+  return path;
+}
+
 BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
                            std::vector<int64_t> &channels,
                            std::vector<int64_t> &kernelSizesConv,
@@ -106,4 +123,20 @@ torch::Tensor BlockConvNet::forward(torch::Tensor x) {
   x = dropoutSubmodule->ptr()->forward(x);
   x = linearSubmodule->ptr()->forward(x);
   return x;
+}
+
+void BlockConvNet::save_model(std::string &path) {
+  path = handle_path(path);
+  torch::serialize::OutputArchive output_archive;
+  save(output_archive);
+  output_archive.save_to(path);
+  BOOST_LOG_TRIVIAL(info) << ("Model saved to " + path + "\n") << std::setw(0);
+}
+
+void BlockConvNet::load_model(std::string &path){
+  path = handle_path(path);
+  torch::serialize::InputArchive archive;
+  archive.load_from(path);
+  load(archive);
+  BOOST_LOG_TRIVIAL(info) << "Model loaded from " << path << "\n";
 }
