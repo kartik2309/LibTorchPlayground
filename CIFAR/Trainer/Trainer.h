@@ -22,14 +22,14 @@ class Trainer {
       TorchDataLoader;
 
   TorchModule model_;
+  float lr_;
   TorchDataLoader trainDataLoader_;
   TorchDataLoader evalDataLoader_;
 
   torch::nn::CrossEntropyLoss *crossEntropyLoss;
-  torch::optim::AdamW *adamOptimizer;
 
   // Functions
-  std::vector<float> train_loop();
+  std::vector<float> train_loop(torch::optim::AdamW &optimizer);
   std::vector<float> eval_loop();
 
   float accuracy(torch::Tensor &predictedClasses, torch::Tensor &trueClasses);

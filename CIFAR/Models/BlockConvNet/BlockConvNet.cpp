@@ -46,6 +46,9 @@ BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
   assert(strides.size() == dilation.size());
   assert(dilation.size() == kernelSizesPool.size());
 
+  std::string convModuleName = "conv_";
+  std::string maxPoolModuleName = "pool_";
+
   for (int64_t idx = 0; idx != numBlocks; idx++) {
     torch::nn::Conv2dOptions conv2dOptions = torch::nn::Conv2dOptions(channels[idx],
                                                                       channels[idx + 1],
@@ -63,6 +66,9 @@ BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
 
     convSubmodules->push_back(*convBlock);
     maxPoolSubmodules->push_back(*maxPoolBlock);
+
+    register_module(convModuleName.append((std::to_string(idx))), *convBlock);
+    register_module(maxPoolModuleName.append((std::to_string(idx))), *maxPoolBlock);
   }
   std::vector<std::vector<int64_t>> interimSizes = get_interim(imageDims,
                                                                kernelSizesConv,
@@ -75,12 +81,16 @@ BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
 
   auto dropoutOptions = torch::nn::DropoutOptions(dropout);
   dropoutSubmodule = new torch::nn::Dropout(dropoutOptions);
+  register_module("dropout", *dropoutSubmodule);
 
   auto flattenOptions = torch::nn::FlattenOptions().start_dim(1).end_dim(-1);
   flattenSubmodule = new torch::nn::Flatten(flattenOptions);
+  register_module("flatten", *flattenSubmodule);
 
   auto linearOptions = torch::nn::LinearOptions(finalSizes[0] * finalSizes[1] * channels.back(), numClasses);
   linearSubmodule = new torch::nn::Linear(linearOptions);
+  register_module("linear", *linearSubmodule);
+
 }
 
 BlockConvNet::~BlockConvNet() = default;
@@ -92,7 +102,6 @@ torch::Tensor BlockConvNet::forward(torch::Tensor x) {
     x = relu(x);
     x = maxPoolSubmodules[idx]->as<torch::nn::MaxPool2d>()->forward(x);
   }
-
   x = flattenSubmodule->ptr()->forward(x);
   x = dropoutSubmodule->ptr()->forward(x);
   x = linearSubmodule->ptr()->forward(x);

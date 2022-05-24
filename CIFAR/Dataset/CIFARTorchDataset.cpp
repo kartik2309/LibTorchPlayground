@@ -116,6 +116,7 @@ std::vector<CIFARTorchDataset::SampleStruct> CIFARTorchDataset::generate_sample_
     std::vector<CIFARTorchDataset::DataPathStruct> &dataPaths) {
   std::vector<SampleStruct> sampleStructs;
   int target_id;
+  auto random = std::default_random_engine {};
 
   for (DataPathStruct &data_path_struct : dataPaths) {
     std::string targetPath = data_path_struct.targetPath_;
@@ -130,6 +131,8 @@ std::vector<CIFARTorchDataset::SampleStruct> CIFARTorchDataset::generate_sample_
       sampleStructs.push_back(sampleStruct);
     }
   }
+
+  std::shuffle(sampleStructs.begin(), sampleStructs.end(), random);
 
   return sampleStructs;
 }
