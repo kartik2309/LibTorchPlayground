@@ -1,0 +1,32 @@
+{
+  "channels": [[
+    3,
+    32,
+    64,
+    128
+  ], "int"],
+  "kernel_sizes": [[
+    3,
+    3,
+    3,
+    3
+  ], "int"],
+  "strides": [[
+    1,
+    1,
+    1,
+    1
+  ], "int"],
+  "dilation": [[
+    1,
+    1,
+    1,
+    1
+  ], "int"],
+  "max_pooling": [[
+    true,
+    true,
+    true,
+    true
+  ], "bool"]
+}

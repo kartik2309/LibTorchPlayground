@@ -1,0 +1,100 @@
+//
+// Created by Kartik Rajeshwaran on 2022-05-19.
+//
+
+#include "BlockConvNet.h"
+
+std::vector<std::vector<int64_t>> BlockConvNet::get_interim(std::vector<int64_t> &imageDims,
+                                                            std::vector<int64_t> &kernelSizesConv,
+                                                            std::vector<int64_t> &strides,
+                                                            std::vector<int64_t> &dilation,
+                                                            std::vector<int64_t> &kernelSizesPool,
+                                                            std::vector<int64_t> &dilationPool,
+                                                            std::vector<int64_t> &stridesPool) {
+  size_t numBlocks = kernelSizesConv.size();
+  std::vector<std::vector<int64_t>> interimSizes;
+  interimSizes.push_back(imageDims);
+
+  for (int64_t idx = 0; idx != numBlocks; idx++) {
+
+    int64_t interimSizeConvHeight = floor((((interimSizes[idx][0] - dilation[idx] * (kernelSizesConv[idx] - 1) - 1) / strides[idx])) + 1);
+    int64_t interimSizeConvWidth = floor((((interimSizes[idx][1] - dilation[idx] * (kernelSizesConv[idx] - 1) - 1) / strides[idx])) + 1);
+
+    int64_t interimSizePoolHeight = floor((((interimSizeConvHeight - dilationPool[idx] * (kernelSizesPool[idx] - 1) - 1) / stridesPool[idx])) + 1);
+    int64_t interimSizePoolWidth = floor((((interimSizeConvWidth - dilationPool[idx] * (kernelSizesPool[idx] - 1) - 1) / stridesPool[idx])) + 1);
+
+    interimSizes.push_back({interimSizePoolHeight, interimSizePoolWidth});
+  }
+
+  return interimSizes;
+}
+
+BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
+                           std::vector<int64_t> &channels,
+                           std::vector<int64_t> &kernelSizesConv,
+                           std::vector<int64_t> &strides,
+                           std::vector<int64_t> &dilation,
+                           std::vector<int64_t> &kernelSizesPool,
+                           std::vector<int64_t> &dilationPool,
+                           std::vector<int64_t> &stridesPool,
+                           float_t dropout,
+                           int64_t numClasses) {
+
+  size_t numBlocks = channels.size() - 1;
+  assert(numBlocks == kernelSizesConv.size());
+  assert(kernelSizesConv.size() == strides.size());
+  assert(strides.size() == dilation.size());
+  assert(dilation.size() == kernelSizesPool.size());
+
+  for (int64_t idx = 0; idx != numBlocks; idx++) {
+    torch::nn::Conv2dOptions conv2dOptions = torch::nn::Conv2dOptions(channels[idx],
+                                                                      channels[idx + 1],
+                                                                      kernelSizesConv[idx])
+                                                 .stride(strides[idx])
+                                                 .dilation(dilation[idx]);
+    auto *convBlock = new torch::nn::Conv2d(conv2dOptions);
+
+    auto maxPool2dOptions = torch::nn::MaxPool2dOptions(
+                                kernelSizesConv[idx])
+                                .dilation(dilationPool[idx])
+                                .stride(stridesPool[idx]);
+
+    auto *maxPoolBlock = new torch::nn::MaxPool2d(maxPool2dOptions);
+
+    convSubmodules->push_back(*convBlock);
+    maxPoolSubmodules->push_back(*maxPoolBlock);
+  }
+  std::vector<std::vector<int64_t>> interimSizes = get_interim(imageDims,
+                                                               kernelSizesConv,
+                                                               strides,
+                                                               dilation,
+                                                               kernelSizesPool,
+                                                               dilationPool,
+                                                               stridesPool);
+  std::vector<int64_t> finalSizes = interimSizes.back();
+
+  auto dropoutOptions = torch::nn::DropoutOptions(dropout);
+  dropoutSubmodule = new torch::nn::Dropout(dropoutOptions);
+
+  auto flattenOptions = torch::nn::FlattenOptions().start_dim(1).end_dim(-1);
+  flattenSubmodule = new torch::nn::Flatten(flattenOptions);
+
+  auto linearOptions = torch::nn::LinearOptions(finalSizes[0] * finalSizes[1] * channels.back(), numClasses);
+  linearSubmodule = new torch::nn::Linear(linearOptions);
+}
+
+BlockConvNet::~BlockConvNet() = default;
+
+torch::Tensor BlockConvNet::forward(torch::Tensor x) {
+  assert(convSubmodules->size() == maxPoolSubmodules->size());
+  for (int64_t idx = 0; idx != convSubmodules->size(); idx++) {
+    x = convSubmodules[idx]->as<torch::nn::Conv2d>()->forward(x);
+    x = relu(x);
+    x = maxPoolSubmodules[idx]->as<torch::nn::MaxPool2d>()->forward(x);
+  }
+
+  x = flattenSubmodule->ptr()->forward(x);
+  x = dropoutSubmodule->ptr()->forward(x);
+  x = linearSubmodule->ptr()->forward(x);
+  return x;
+}
