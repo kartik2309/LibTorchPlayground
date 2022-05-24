@@ -2,10 +2,11 @@
 // Created by Kartik Rajeshwaran on 2022-05-19.
 //
 
-#ifndef LIBTORCHPLAYGROUND_CIFAR_CIFAR_H_
-#define LIBTORCHPLAYGROUND_CIFAR_CIFAR_H_
+#ifndef LIBTORCHPLAYGROUND_CIFAR_MODELS_BLOCKCONVNET_BLOCKCONVNET_H_
+#define LIBTORCHPLAYGROUND_CIFAR_MODELS_BLOCKCONVNET_BLOCKCONVNET_H_
 
 #include <torch/torch.h>
+#include <boost/log/trivial.hpp>
 
 class BlockConvNet : public torch::nn::Module {
 
@@ -29,6 +30,8 @@ class BlockConvNet : public torch::nn::Module {
                                                        std::vector<int64_t> &dilationPool,
                                                        std::vector<int64_t> &stridesPool);
 
+  static std::string handle_path(std::string &path);
+
  public:
   // Constructor
   BlockConvNet(std::vector<int64_t> &imageDims,
@@ -47,6 +50,8 @@ class BlockConvNet : public torch::nn::Module {
 
   // Forward Propagation
   torch::Tensor forward(torch::Tensor x);
+  void save_model(std::string &path);
+  void load_model(std::string &path);
 };
 
-#endif//LIBTORCHPLAYGROUND_CIFAR_CIFAR_H_
+#endif//LIBTORCHPLAYGROUND_CIFAR_MODELS_BLOCKCONVNET_BLOCKCONVNET_H_

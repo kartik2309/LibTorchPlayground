@@ -113,15 +113,14 @@ void Trainer<TorchModule, TorchDataset, DatasetTransformation, Sampler>::fit(int
   torch::optim::AdamW adamOptimizer(model_->parameters(), adamWOptions);
 
   for (int idx = 0; idx != epochs; idx++) {
-    std::cout << "Epoch:" << idx << std::endl;
-    std::cout << "Training Phase" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Epoch:" << idx;
+    BOOST_LOG_TRIVIAL(info) << "Training Phase";
     std::vector<float> trainMetrics = train_loop(adamOptimizer);
-    std::cout << "Loss:" << trainMetrics[0] << " Accuracy:" << trainMetrics[1] << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Loss:" << trainMetrics[0] << " Accuracy:" << trainMetrics[1];
 
-    std::cout << "Evaluation Phase" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Evaluation Phase";
     std::vector<float> evalMetrics = eval_loop();
-    std::cout << "Loss:" << evalMetrics[0] << " Accuracy:" << evalMetrics[1] << std::endl;
-    std::cout << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Loss:" << evalMetrics[0] << " Accuracy:" << evalMetrics[1] << std::endl;
   }
 }
 

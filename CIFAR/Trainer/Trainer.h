@@ -6,6 +6,7 @@
 #define LIBTORCHPLAYGROUND_CIFAR_TRAINER_TRAINER_H_
 
 #include <torch/torch.h>
+#include <boost/log/trivial.hpp>
 
 using namespace torch::indexing;
 
