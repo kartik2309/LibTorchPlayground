@@ -21,17 +21,18 @@ add_executable(
 
         main.cpp
 
-        CIFAR/Models/BlockConvNet/BlockConvNet.cpp
-        CIFAR/Models/BlockConvNet/BlockConvNet.h
+        CIFAR/CPP/Models/BlockConvNet/BlockConvNet.cpp
+        CIFAR/CPP/Models/BlockConvNet/BlockConvNet.h
 
-        CIFAR/Dataset/CIFARTorchDataset.cpp
-        CIFAR/Dataset/CIFARTorchDataset.h
+        CIFAR/CPP/Dataset/CIFARTorchDataset.cpp
+        CIFAR/CPP/Dataset/CIFARTorchDataset.h
 
-        CIFAR/Trainer/Trainer.cpp
-        CIFAR/Trainer/Trainer.h
-        CIFAR/Trainer/TrainerImpl.cpp
+        CIFAR/CPP/Trainer/Trainer.cpp
+        CIFAR/CPP/Trainer/Trainer.h
+        CIFAR/CPP/Trainer/TrainerImpl.cpp
 
-        CIFAR/cifar.hpp
+        CIFAR/CPP/cifar.hpp
+
 )
 
 # Link the libraries

@@ -10,7 +10,7 @@
 
 using namespace torch::indexing;
 
-template<class TorchModule, class TorchDataset, class DatasetTransformation, class Sampler>
+template<class TorchModule, class TorchDataset, class DatasetTransformation, class Sampler, class Optimizer, class Loss>
 class Trainer {
 
   // Variables
@@ -23,24 +23,28 @@ class Trainer {
       TorchDataLoader;
 
   TorchModule model_;
-  float lr_;
+  Optimizer *optimizer_;
+  Loss *loss_;
   TorchDataLoader trainDataLoader_;
   TorchDataLoader evalDataLoader_;
 
-  torch::nn::CrossEntropyLoss *crossEntropyLoss;
-
   // Functions
-  std::vector<float> train_loop(torch::optim::AdamW &optimizer);
+  std::vector<float> train_loop();
   std::vector<float> eval_loop();
 
   float accuracy(torch::Tensor &predictedClasses, torch::Tensor &trueClasses);
-  std::vector<float> get_batch_metrics(std::vector<float> &losses, std::vector<float> &accuracies, int num_batches);
+  std::vector<float> get_batch_metrics(std::vector<float> &losses, std::vector<float> &accuracies);
 
   TorchDataLoader setup_data_loader(TorchDataset &dataset, int batchSize);
 
  public:
   // Constructor
-  Trainer(TorchModule &model, TorchDataset &trainDataset, TorchDataset &evalDataset, int batchSize, float lr);
+  Trainer(TorchModule &model,
+          TorchDataset &trainDataset,
+          TorchDataset &evalDataset,
+          int batchSize,
+          Optimizer &optimizer,
+          Loss &loss);
 
   // Destructor
   ~Trainer();

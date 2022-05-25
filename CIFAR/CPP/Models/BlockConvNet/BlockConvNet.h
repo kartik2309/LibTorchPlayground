@@ -24,8 +24,8 @@ class BlockConvNet : public torch::nn::Module {
   // Functions
   static std::vector<std::vector<int64_t>> get_interim(std::vector<int64_t> &imageDims,
                                                        std::vector<int64_t> &kernelSizesConv,
-                                                       std::vector<int64_t> &strides,
-                                                       std::vector<int64_t> &dilation,
+                                                       std::vector<int64_t> &stridesConv,
+                                                       std::vector<int64_t> &dilationConv,
                                                        std::vector<int64_t> &kernelSizesPool,
                                                        std::vector<int64_t> &dilationPool,
                                                        std::vector<int64_t> &stridesPool);
@@ -37,11 +37,11 @@ class BlockConvNet : public torch::nn::Module {
   BlockConvNet(std::vector<int64_t> &imageDims,
                std::vector<int64_t> &channels,
                std::vector<int64_t> &kernelSizesConv,
-               std::vector<int64_t> &strides,
-               std::vector<int64_t> &dilation,
+               std::vector<int64_t> &stridesConv,
+               std::vector<int64_t> &dilationConv,
                std::vector<int64_t> &kernelSizesPool,
-               std::vector<int64_t> &dilationPool,
                std::vector<int64_t> &stridesPool,
+               std::vector<int64_t> &dilationPool,
                float_t dropout,
                int64_t numClasses);
 

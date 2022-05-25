@@ -6,19 +6,19 @@
 
 std::vector<std::vector<int64_t>> BlockConvNet::get_interim(std::vector<int64_t> &imageDims,
                                                             std::vector<int64_t> &kernelSizesConv,
-                                                            std::vector<int64_t> &strides,
-                                                            std::vector<int64_t> &dilation,
+                                                            std::vector<int64_t> &stridesConv,
+                                                            std::vector<int64_t> &dilationConv,
                                                             std::vector<int64_t> &kernelSizesPool,
-                                                            std::vector<int64_t> &dilationPool,
-                                                            std::vector<int64_t> &stridesPool) {
+                                                            std::vector<int64_t> &stridesPool,
+                                                            std::vector<int64_t> &dilationPool) {
   size_t numBlocks = kernelSizesConv.size();
   std::vector<std::vector<int64_t>> interimSizes;
   interimSizes.push_back(imageDims);
 
   for (int64_t idx = 0; idx != numBlocks; idx++) {
 
-    int64_t interimSizeConvHeight = floor((((interimSizes[idx][0] - dilation[idx] * (kernelSizesConv[idx] - 1) - 1) / strides[idx])) + 1);
-    int64_t interimSizeConvWidth = floor((((interimSizes[idx][1] - dilation[idx] * (kernelSizesConv[idx] - 1) - 1) / strides[idx])) + 1);
+    int64_t interimSizeConvHeight = floor((((interimSizes[idx][0] - dilationConv[idx] * (kernelSizesConv[idx] - 1) - 1) / stridesConv[idx])) + 1);
+    int64_t interimSizeConvWidth = floor((((interimSizes[idx][1] - dilationConv[idx] * (kernelSizesConv[idx] - 1) - 1) / stridesConv[idx])) + 1);
 
     int64_t interimSizePoolHeight = floor((((interimSizeConvHeight - dilationPool[idx] * (kernelSizesPool[idx] - 1) - 1) / stridesPool[idx])) + 1);
     int64_t interimSizePoolWidth = floor((((interimSizeConvWidth - dilationPool[idx] * (kernelSizesPool[idx] - 1) - 1) / stridesPool[idx])) + 1);
@@ -29,10 +29,10 @@ std::vector<std::vector<int64_t>> BlockConvNet::get_interim(std::vector<int64_t>
   return interimSizes;
 }
 
-std::string BlockConvNet::handle_path(std::string &path){
+std::string BlockConvNet::handle_path(std::string &path) {
   std::filesystem::directory_entry de(path.c_str());
-  if (de.is_directory()){
-    if (path.back() == '/'){
+  if (de.is_directory()) {
+    if (path.back() == '/') {
       path.append("BlockConvNet.pt");
       return path;
     }
@@ -40,7 +40,7 @@ std::string BlockConvNet::handle_path(std::string &path){
     return path;
   }
 
-  if (path.substr(path.length() - 3, path.length() - 1) != ".pt"){
+  if (path.substr(path.length() - 3, path.length() - 1) != ".pt") {
     path = path.append(".pt");
   }
   return path;
@@ -49,19 +49,19 @@ std::string BlockConvNet::handle_path(std::string &path){
 BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
                            std::vector<int64_t> &channels,
                            std::vector<int64_t> &kernelSizesConv,
-                           std::vector<int64_t> &strides,
-                           std::vector<int64_t> &dilation,
+                           std::vector<int64_t> &stridesConv,
+                           std::vector<int64_t> &dilationConv,
                            std::vector<int64_t> &kernelSizesPool,
-                           std::vector<int64_t> &dilationPool,
                            std::vector<int64_t> &stridesPool,
+                           std::vector<int64_t> &dilationPool,
                            float_t dropout,
                            int64_t numClasses) {
 
   size_t numBlocks = channels.size() - 1;
   assert(numBlocks == kernelSizesConv.size());
-  assert(kernelSizesConv.size() == strides.size());
-  assert(strides.size() == dilation.size());
-  assert(dilation.size() == kernelSizesPool.size());
+  assert(kernelSizesConv.size() == stridesConv.size());
+  assert(stridesConv.size() == dilationConv.size());
+  assert(dilationConv.size() == kernelSizesPool.size());
 
   std::string convModuleName = "conv_";
   std::string maxPoolModuleName = "pool_";
@@ -70,8 +70,8 @@ BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
     torch::nn::Conv2dOptions conv2dOptions = torch::nn::Conv2dOptions(channels[idx],
                                                                       channels[idx + 1],
                                                                       kernelSizesConv[idx])
-                                                 .stride(strides[idx])
-                                                 .dilation(dilation[idx]);
+                                                 .stride(stridesConv[idx])
+                                                 .dilation(dilationConv[idx]);
     auto *convBlock = new torch::nn::Conv2d(conv2dOptions);
 
     auto maxPool2dOptions = torch::nn::MaxPool2dOptions(
@@ -89,11 +89,11 @@ BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
   }
   std::vector<std::vector<int64_t>> interimSizes = get_interim(imageDims,
                                                                kernelSizesConv,
-                                                               strides,
-                                                               dilation,
+                                                               stridesConv,
+                                                               dilationConv,
                                                                kernelSizesPool,
-                                                               dilationPool,
-                                                               stridesPool);
+                                                               stridesPool,
+                                                               dilationPool);
   std::vector<int64_t> finalSizes = interimSizes.back();
 
   auto dropoutOptions = torch::nn::DropoutOptions(dropout);
@@ -107,7 +107,6 @@ BlockConvNet::BlockConvNet(std::vector<int64_t> &imageDims,
   auto linearOptions = torch::nn::LinearOptions(finalSizes[0] * finalSizes[1] * channels.back(), numClasses);
   linearSubmodule = new torch::nn::Linear(linearOptions);
   register_module("linear", *linearSubmodule);
-
 }
 
 BlockConvNet::~BlockConvNet() = default;
@@ -133,7 +132,7 @@ void BlockConvNet::save_model(std::string &path) {
   BOOST_LOG_TRIVIAL(info) << ("Model saved to " + path + "\n") << std::setw(0);
 }
 
-void BlockConvNet::load_model(std::string &path){
+void BlockConvNet::load_model(std::string &path) {
   path = handle_path(path);
   torch::serialize::InputArchive archive;
   archive.load_from(path);
