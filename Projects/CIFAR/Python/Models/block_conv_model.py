@@ -1,3 +1,5 @@
+import os.path
+import random
 from typing import Union, List, Tuple
 import math
 import torch
@@ -72,17 +74,41 @@ class BlockConvModel(torch.nn.Module):
             in_features=sizes[0] * sizes[1] * channels[-1], out_features=num_classes
         )
 
-    def forward(self, x: torch.Tensor):
-        for idx in range(self.num_blocks):
-            x = self.conv_submodules[idx](x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for _, (conv_submodule, maxpool_submodule) in enumerate(
+            zip(self.conv_submodules, self.maxpool_submodules)
+        ):
+            x = conv_submodule(x)
             x = self.relu(x)
-            x = self.maxpool_submodules[idx](x)
+            x = maxpool_submodule(x)
 
         x = self.flatten_submodule(x)
         x = self.dropout_submodules(x)
         x = self.linear_submodule(x)
 
         return x
+
+    def save_model(self, path: str) -> None:
+        path = self.__handle_path(path)
+
+        model_checkpoint = self.state_dict()
+        torch.save(model_checkpoint, path)
+
+    def load_model(self, path: str) -> None:
+        path = self.__handle_path(path)
+
+        model_checkpoint = torch.load(path)
+        self.load_state_dict(model_checkpoint)
+
+    def export_to_jit(self, path: str, sample: Tuple[torch.Tensor]) -> None:
+        path = self.__handle_path(path)
+        traced = torch.jit.trace(self, example_inputs=sample)
+        torch.jit.save(traced, path)
+
+    def load_from_jit(self, path: str) -> None:
+        path = self.__handle_path(path)
+        traced = torch.jit.load(path)
+        torch.jit.save(traced, path)
 
     def _get_interim(
         self,
@@ -123,3 +149,11 @@ class BlockConvModel(torch.nn.Module):
         size = math.floor(((curr_size - dilation * (kernel_size - 1) - 1) / stride) + 1)
 
         return size
+
+    @staticmethod
+    def __handle_path(path: str) -> str:
+        if os.path.isdir(path):
+            path = path + "BlockConvNet.pth"
+        if ".pth" not in path:
+            path = path + ".pth"
+        return path

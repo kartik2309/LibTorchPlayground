@@ -1,5 +1,5 @@
 # LibTorchPlayground
-A collection of Libtorch Library based implementations.
+A collection of Libtorch Library based implementations with corresponding Pytorch based implementation.
 
 Implementations included:
 

@@ -1,42 +1,25 @@
+import os.path
+
 import torch.optim
-from CIFAR.Python import CIFARTorchDataset, BlockConvModel, Trainer
+from Projects.CIFAR.Python import CIFARTorchDataset, BlockConvModel
+from Trainer.Python.trainer import Trainer
+from torchvision.models import resnet18
 
 
 def driver():
     cifar_path_train = (
-        "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/train"
+        "/path/to/CIFAR-10-images/train"
     )
     cifar_path_test = (
-        "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/test"
+        "/path/to/CIFAR-10-images/test"
     )
+
+    model_path = "/path/to/Models/"
 
     train_dataset = CIFARTorchDataset(cifar_path_train)
     eval_dataset = CIFARTorchDataset(cifar_path_test)
 
-    image_dims = (32, 32)
-    channels = [3, 32, 64, 128]
-    kernel_sizes_conv = [3, 3, 3]
-    strides_conv = [1, 1, 1]
-    dilation_conv = [1, 1, 1]
-
-    kernel_sizes_pool = [3, 3, 3]
-    dilation_pool = [1, 1, 1]
-    strides_pool = [1, 1, 1]
-    dropout = 0.5
-    num_classes = 10
-
-    model = BlockConvModel(
-        image_sizes=image_dims,
-        channels=channels,
-        kernel_size_conv=kernel_sizes_conv,
-        strides_conv=strides_conv,
-        dilation_conv=dilation_conv,
-        kernel_size_pool=kernel_sizes_pool,
-        dilation_pool=dilation_pool,
-        strides_pool=strides_pool,
-        dropout=dropout,
-        num_classes=num_classes,
-    )
+    model = resnet18(pretrained=False)
 
     adamw = torch.optim.AdamW(model.parameters(), lr=5e-3)
     loss = torch.nn.CrossEntropyLoss()
@@ -49,7 +32,9 @@ def driver():
         loss=loss,
     )
 
-    trainer.fit(2)
+    trainer.save_optimizer(path=model_path)
+
+    trainer.export_model_to_jit(os.path.join(model_path, "ResNet-18.pt"))
 
 
 if __name__ == "__main__":
