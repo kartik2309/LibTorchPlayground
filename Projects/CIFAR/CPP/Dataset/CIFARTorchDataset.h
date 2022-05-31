@@ -2,19 +2,21 @@
 // Created by Kartik Rajeshwaran on 2022-05-19.
 //
 
-#ifndef LIBTORCHPLAYGROUND_CIFAR_DATASET_CIFARTORCHDATASET_H_
-#define LIBTORCHPLAYGROUND_CIFAR_DATASET_CIFARTORCHDATASET_H_
+#ifndef LIBTORCHPLAYGROUND_PROJECT_CPP_CIFAR_DATASET_CIFARTORCHDATASET_H_
+#define LIBTORCHPLAYGROUND_PROJECT_CPP_CIFAR_DATASET_CIFARTORCHDATASET_H_
 
+#include <algorithm>
 #include <exception>
 #include <filesystem>
-#include <string>
-#include <algorithm>
 #include <random>
+#include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <torch/torch.h>
+
 
 class CIFARTorchDataset : public torch::data::Dataset<CIFARTorchDataset> {
  private:
@@ -46,11 +48,6 @@ class CIFARTorchDataset : public torch::data::Dataset<CIFARTorchDataset> {
     std::string target_;
     int target_id_;
     LabelEncodingStruct(std::string &target, int target_id);
-
-    // Operator Overloads
-    friend bool operator==(LabelEncodingStruct &labelEncoding_a, LabelEncodingStruct &labelEncoding_b);
-    friend bool operator!=(LabelEncodingStruct &labelEncoding_a, LabelEncodingStruct &labelEncoding_b);
-    friend bool operator>(LabelEncodingStruct &labelEncoding, std::vector<LabelEncodingStruct> &labelEncodingVector);
   };
   struct SampleStruct {
     int target_id_;
@@ -70,6 +67,10 @@ class CIFARTorchDataset : public torch::data::Dataset<CIFARTorchDataset> {
   torch::data::Example<> get(size_t index) override;
   [[nodiscard]] torch::optional<size_t> size() const override;
 
+  // Operator Overloads
+  friend bool operator==(LabelEncodingStruct &labelEncoding_a, LabelEncodingStruct &labelEncoding_b);
+  friend bool operator!=(LabelEncodingStruct &labelEncoding_a, LabelEncodingStruct &labelEncoding_b);
+  friend bool operator>(LabelEncodingStruct &labelEncoding, std::vector<LabelEncodingStruct> &labelEncodingVector);
 };
 
-#endif//LIBTORCHPLAYGROUND_CIFAR_DATASET_CIFARTORCHDATASET_H_
+#endif//LIBTORCHPLAYGROUND_PROJECT_CPP_CIFAR_DATASET_CIFARTORCHDATASET_H_

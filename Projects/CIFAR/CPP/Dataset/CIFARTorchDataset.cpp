@@ -41,7 +41,7 @@ std::string CIFARTorchDataset::get_target_name(std::string &targetPath) {
   return split_paths(targetPath).back();
 }
 
-std::vector<CIFARTorchDataset::DataPathStruct> CIFARTorchDataset::directory_traversal(std::string &path) {
+std::vector<typename CIFARTorchDataset::DataPathStruct> CIFARTorchDataset::directory_traversal(std::string &path) {
   std::vector<CIFARTorchDataset::DataPathStruct> dataPaths;
   std::vector<std::string> imagePaths_;
   std::string targetPath_;
@@ -75,6 +75,7 @@ cv::Mat CIFARTorchDataset::normalize_cv_image(cv::Mat &img) {
   cv::normalize(img, img, 1, 0, cv::NORM_MINMAX);
   return img;
 }
+
 torch::Tensor CIFARTorchDataset::mat_to_tensor(cv::Mat &img) {
   torch::Tensor img_tensor = torch::zeros({img.rows, img.cols, img.channels()}, image_tensor_data_options);
   std::memcpy(img_tensor.data_ptr(), img.data, img_tensor.nbytes());
@@ -90,7 +91,7 @@ CIFARTorchDataset::CIFARTorchDataset(std::string &path) {
 
 CIFARTorchDataset::~CIFARTorchDataset() = default;
 
-std::vector<CIFARTorchDataset::LabelEncodingStruct> CIFARTorchDataset::generate_label_encoding(
+std::vector<typename CIFARTorchDataset::LabelEncodingStruct> CIFARTorchDataset::generate_label_encoding(
     std::vector<DataPathStruct> &dataPaths) {
 
   std::vector<LabelEncodingStruct> labelEncoding;
@@ -112,7 +113,7 @@ std::vector<CIFARTorchDataset::LabelEncodingStruct> CIFARTorchDataset::generate_
   return labelEncoding;
 }
 
-std::vector<CIFARTorchDataset::SampleStruct> CIFARTorchDataset::generate_sample_table(
+std::vector<typename CIFARTorchDataset::SampleStruct> CIFARTorchDataset::generate_sample_table(
     std::vector<CIFARTorchDataset::DataPathStruct> &dataPaths) {
   std::vector<SampleStruct> sampleStructs;
   int target_id;
@@ -149,7 +150,7 @@ int CIFARTorchDataset::get_encoded_target(std::string &target_) {
     break;
   }
   if (target_id == -1) {
-    throw std::runtime_error("Target not found in the encoding!");
+    throw std::runtime_error("Target not found in the encoding! - from CIFARTorchDataset.cpp");
   }
   return target_id;
 }
@@ -182,7 +183,6 @@ torch::data::Example<> CIFARTorchDataset::get(size_t index) {
 
   torch::Tensor target_id = torch::full({}, sample.target_id_);
   torch::Tensor image = get_image(sample.imagePath_);
-
   return {image, target_id};
 }
 
@@ -191,8 +191,8 @@ torch::optional<size_t> CIFARTorchDataset::size() const {
 }
 
 bool operator==(
-    CIFARTorchDataset::LabelEncodingStruct &labelEncoding_a,
-    CIFARTorchDataset::LabelEncodingStruct &labelEncoding_b) {
+    typename CIFARTorchDataset::LabelEncodingStruct &labelEncoding_a,
+    typename CIFARTorchDataset::LabelEncodingStruct &labelEncoding_b) {
   if (
       (labelEncoding_a.target_id_ == labelEncoding_b.target_id_)
       and (labelEncoding_a.target_ == labelEncoding_b.target_))
@@ -201,8 +201,8 @@ bool operator==(
 }
 
 bool operator!=(
-    CIFARTorchDataset::LabelEncodingStruct &labelEncoding_a,
-    CIFARTorchDataset::LabelEncodingStruct &labelEncoding_b) {
+    typename CIFARTorchDataset::LabelEncodingStruct &labelEncoding_a,
+    typename CIFARTorchDataset::LabelEncodingStruct &labelEncoding_b) {
   if (
       (labelEncoding_a.target_id_ != labelEncoding_b.target_id_)
       and (labelEncoding_a.target_ != labelEncoding_b.target_))
@@ -211,12 +211,12 @@ bool operator!=(
 }
 
 bool operator>(
-    CIFARTorchDataset::LabelEncodingStruct &labelEncoding,
-    std::vector<CIFARTorchDataset::LabelEncodingStruct> &labelEncodingVector) {
+    typename CIFARTorchDataset::LabelEncodingStruct &labelEncoding,
+    std::vector<typename CIFARTorchDataset::LabelEncodingStruct> &labelEncodingVector) {
 
   bool findFlag = false;
 
-  for (CIFARTorchDataset::LabelEncodingStruct &labelEncodingStruct : labelEncodingVector) {
+  for (typename CIFARTorchDataset::LabelEncodingStruct &labelEncodingStruct : labelEncodingVector) {
     if (labelEncodingStruct != labelEncoding) {
       continue;
     }
