@@ -39,17 +39,15 @@ class Trainer:
 
         self.model.train()
         for batch in self.train_dataloader:
+            batch = tuple([x.to(self.device) for x in batch])
             target, image = batch
 
-            target_ = target.to(self.device)
-            image_ = image.to(self.device)
-
-            logits = self.model(image_)
+            logits = self.model(image)
             predicted_classes = torch.argmax(logits, dim=-1)
 
             self.optimizer.zero_grad()
-            loss = self.loss(logits, target_)
-            accuracy = self.__accuracy(predicted_classes, target_)
+            loss = self.loss(logits, target)
+            accuracy = self.__accuracy(predicted_classes, target)
             loss.backward()
             self.optimizer.step()
 
@@ -64,16 +62,14 @@ class Trainer:
 
         self.model.eval()
         for batch in self.eval_dataloader:
+            batch = tuple([x.to(self.device) for x in batch])
             target, image = batch
 
-            target_ = target.to(self.device)
-            image_ = image.to(self.device)
-
-            logits = self.model(image_)
+            logits = self.model(image)
             predicted_classes = torch.argmax(logits, dim=-1)
 
-            loss = self.loss(logits, target_)
-            accuracy = self.__accuracy(predicted_classes, target_)
+            loss = self.loss(logits, target)
+            accuracy = self.__accuracy(predicted_classes, target)
 
             losses.append(loss.item())
             accuracies.append(accuracy)
@@ -100,18 +96,11 @@ class Trainer:
         checkpoint_opt = torch.load(path)
         self.optimizer.load_state_dict(checkpoint_opt)
 
-    def export_model_to_jit(self, path: str, device="cuda") -> None:
+    @torch.no_grad()
+    def export_model_to_jit(self, path: str) -> None:
         self.model.eval()
-        if self.eval_dataloader is not None:
-            sample_idx = random.randint(0, self.eval_dataloader.__len__())
-        else:
-            sample_idx = random.randint(0, self.train_dataloader.__len__())
-        if device == "cuda":
-            sample = (self.train_dataloader.dataset[sample_idx][1].unsqueeze(0).to('cuda:0'),)
-        else:
-            self.model.cpu()
-            sample = (self.train_dataloader.dataset[sample_idx][1].unsqueeze(0),)
-        traced_model = torch.jit.trace(self.model, example_inputs=sample)
+        self.model.cpu()
+        traced_model = torch.jit.script(self.model)
         logging.info(traced_model.graph)
         torch.jit.save(traced_model, path)
 
@@ -129,13 +118,15 @@ class Trainer:
         else:
             sample_idx = random.randint(0, self.train_dataloader.__len__())
 
-        sample = (self.train_dataloader.dataset[sample_idx][1].unsqueeze(0),)
-        scripted_module = torch.jit.script(self.model)
+        sample = self.train_dataloader.dataset[sample_idx]
+        sample_inputs = (sample[1].unsqueeze(0),)
+        sample_outputs = (sample[0], )
         torch.onnx.export(
-            scripted_module,
-            sample,
+            self.model,
+            sample_inputs,
             path,
             input_names=input_names,
+            example_outputs=sample_outputs,
             opset_version=opset_version,
             output_names=output_names,
             dynamic_axes=dynamic_axes,

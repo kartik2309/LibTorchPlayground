@@ -2,11 +2,11 @@
 // Created by Kartik Rajeshwaran on 2022-05-23.
 //
 
-#ifndef LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_H_
-#define LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_H_
+#ifndef LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_HPP_
+#define LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_HPP_
 #define BOOST_LOG_DYN_LINK 1
 
-#include "Utilities/BatchTransformTemplate/BatchTransformTemplate.h"
+#include "Utilities/BatchTransformTemplate/BatchTransformTemplate.hpp"
 #include <boost/log/trivial.hpp>
 #include <torch/torch.h>
 #include <vector>
@@ -357,5 +357,7 @@ void Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::v
   std::vector<float> evalMetrics = eval_loop();
   BOOST_LOG_TRIVIAL(info) << "Loss:" << evalMetrics[0] << " Accuracy:" << evalMetrics[1] << std::endl;
 }
+template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
 
-#endif//LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_H_
+
+#endif//LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_HPP_
