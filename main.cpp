@@ -1,57 +1,43 @@
-
-#include "ONNX/Inference/Inference.h"
-#include "Projects/CIFAR/CPP/cifar.hpp"
+#include "Projects/CIFAR/CPP/Dataset/CIFARTorchDataset.h"
 #include "TorchScriptUtilities/CPP/LoadJIT/LoadJIT.h"
 #include "Trainer/CPP/Trainer.hpp"
+#include "Trainer/CPP/Utilities/MultiprocessingBackend.hpp"
 
 int main() {
+  std::string trainDatasetPath = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/train";
+  std::string evalDatasetPath = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/test";
+  std::string modelPath = "/Users/kartikrajeshwaran/CodeSupport/CPP/Models/LibtorchPlayground/BlockConvNet/BlockConvNetJIT.pt";
 
-  //   Create Datasets
-  std::string cifar_path_train = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/train";
-  std::string cifar_path_test = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/test";
-  std::string model_path = "/Users/kartikrajeshwaran/CodeSupport/CPP/Models/LibtorchPlayground/BlockConvNet/BlockConvNet.onnx";
+  auto *trainDataset = new CIFARTorchDataset(trainDatasetPath);
+  auto *evalDataset = new CIFARTorchDataset(evalDatasetPath);
 
-  auto *trainDataset = new CIFARTorchDataset(cifar_path_train);
-  auto *evalDataset = new CIFARTorchDataset(cifar_path_test);
-  {
+  auto loader = new LoadJIT(modelPath);
+  auto model = loader->get_model_ptr();
 
-//  auto *loadJit = new LoadJIT(model_path);
-//  auto jitModel = loadJit->get_model_ptr();
-//
-//  std::vector<torch::Tensor> params;
-//  for (auto param : jitModel->parameters()){
-//    params.push_back(param);
-//  }
-//
-//  auto adamOptions = torch::optim::AdamWOptions(5e-3);
-//  torch::optim::AdamW adamWOptimizer(params, adamOptions);
-//
-//  torch::nn::CrossEntropyLossOptions crossEntropyLossOptions = torch::nn::CrossEntropyLossOptions().reduction(torch::kMean);
-//  auto *crossEntropyLoss = new torch::nn::CrossEntropyLoss(crossEntropyLossOptions);
-//
-//
-    //  auto *trainer = new Trainer<torch::jit::Module *,
-    //                              CIFARTorchDataset,
-    //                              torch::data::samplers::SequentialSampler,
-    //                              torch::optim::AdamW,
-    //                              torch::nn::CrossEntropyLoss,
-    //                              std::vector<torch::jit::IValue>>(
-    //      jitModel,
-    //      *trainDataset,
-    //      *evalDataset,
-    //      32,
-    //      adamWOptimizer,
-    //      *crossEntropyLoss);
-    //
-    //  trainer->fit(7);
-    //  jitModel->to(torch::kCPU);
-    //  jitModel->save(model_path);
+  std::vector<torch::Tensor> params;
+  for (auto param : model->parameters()) {
+    params.push_back(param);
   }
 
-  std::vector<std::string> inputNames = {"images"};
-  std::vector<std::string> outputNames = {"logits"};
-  Inference *onnxInference = new Inference(model_path, inputNames, outputNames);
-  torch::Tensor image = trainDataset->get(0).data.unsqueeze(0);
-  onnxInference->run_inference(image);
+  torch::optim::AdamWOptions adamOptions(5e-3);
+  torch::optim::AdamW adamOptimizer(params, adamOptions);
+
+  torch::nn::CrossEntropyLoss *loss = new torch::nn::CrossEntropyLoss();
+
+  auto *trainer = new Trainer<torch::jit::Module *,
+                              CIFARTorchDataset,
+                              torch::data::samplers::DistributedRandomSampler,
+                              torch::optim::AdamW,
+                              torch::nn::CrossEntropyLoss,
+                              std::vector<torch::jit::IValue>>(
+      model,
+      *trainDataset,
+      *evalDataset,
+      32,
+      adamOptimizer,
+      *loss,
+      4);
+
+  trainer->fit_parallel(1, 0);
   return 0;
 }

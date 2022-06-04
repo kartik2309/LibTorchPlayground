@@ -6,10 +6,14 @@
 #define LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_HPP_
 #define BOOST_LOG_DYN_LINK 1
 
-#include "Utilities/BatchTransformTemplate/BatchTransformTemplate.hpp"
 #include <boost/log/trivial.hpp>
 #include <torch/torch.h>
 #include <vector>
+
+#include "Utilities/BatchTransformTemplate.hpp"
+#include "Utilities/MultiprocessingBackend.hpp"
+#include "Utilities/Metrics/Metrics.h"
+
 using namespace torch::indexing;
 
 template<class TorchModule,
@@ -24,7 +28,9 @@ class Trainer {
   // Variables
   typedef torch::disable_if_t<
       torch::data::datasets::MapDataset<
-          TorchDataset, BatchTransformTemplate<std::vector<torch::data::Example<>>, torch::data::Example<ReturnType, torch::Tensor>>>::is_stateful
+          TorchDataset,
+          BatchTransformTemplate<std::vector<torch::data::Example<>>,
+                                 torch::data::Example<ReturnType, torch::Tensor>>>::is_stateful
           || !std::is_constructible<Sampler, size_t>::value,
       std::unique_ptr<torch::data::StatelessDataLoader<
           torch::data::datasets::MapDataset<
@@ -41,15 +47,14 @@ class Trainer {
   TorchDataLoader evalDataLoader_;
   TorchDataLoader testDataLoader_;
 
+  MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss> *mpb = nullptr;
+
   torch::DeviceType device_;
 
   // Functions
   std::vector<float> train_loop();
   std::vector<float> eval_loop();
   std::vector<float> test_loop();
-
-  float accuracy(torch::Tensor &predictedClasses, torch::Tensor &trueClasses);
-  std::vector<float> get_batch_metrics(std::vector<float> &losses, std::vector<float> &accuracies);
 
   TorchDataLoader setup_data_loader(TorchDataset &dataset, int batchSize);
   std::string handle_path(std::string &path);
@@ -79,11 +84,20 @@ class Trainer {
           Optimizer &optimizer,
           Loss &loss);
 
+  Trainer(TorchModule &model,
+          TorchDataset &trainDataset,
+          TorchDataset &evalDataset,
+          int batchSize,
+          Optimizer &optimizer,
+          Loss &loss,
+          int n_procs);
+
   // Destructor
   ~Trainer();
 
   // Functions
   void fit(int epochs);
+  void fit_parallel(int epochs, std::optional<int> log_from_rank = std::optional<int>());
   void validate();
   void inference();
   void save_optimizer(std::string &path);
@@ -118,7 +132,7 @@ std::vector<float> Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, 
     accuracies.push_back(accuracyValue);
   }
 
-  return get_batch_metrics(losses, accuracies);
+  return Metrics::get_batch_metrics(losses, accuracies);
 }
 
 template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
@@ -137,14 +151,14 @@ std::vector<float> Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, 
       torch::Tensor predictedClasses = torch::argmax(data_, -1);
 
       torch::Tensor loss = loss_->ptr()->forward(data_, target);
-      float accuracyValue = accuracy(predictedClasses, target);
+      float accuracyValue = Metrics::accuracy(predictedClasses, target);
 
       losses.push_back(loss.item<float>());
       accuracies.push_back(accuracyValue);
     }
   }
 
-  return get_batch_metrics(losses, accuracies);
+  return Metrics::get_batch_metrics(losses, accuracies);
 }
 
 template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
@@ -163,41 +177,14 @@ std::vector<float> Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, 
       torch::Tensor predictedClasses = torch::argmax(data_, -1);
 
       torch::Tensor loss = loss_->ptr()->forward(data_, target);
-      float accuracyValue = accuracy(predictedClasses, target);
+      float accuracyValue = Metrics::accuracy(predictedClasses, target);
 
       losses.push_back(loss.item<float>());
       accuracies.push_back(accuracyValue);
     }
   }
 
-  return get_batch_metrics(losses, accuracies);
-}
-
-template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
-float Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::accuracy(torch::Tensor &predictedClasses, torch::Tensor &trueClasses) {
-  torch::Tensor ones_ = torch::ones(predictedClasses.sizes());
-  torch::Tensor onesIndexed = ones_.index({predictedClasses.eq(trueClasses)});
-  torch::Tensor mean_ = onesIndexed.sum() / ones_.sum();
-  return mean_.item<float>();
-}
-
-template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
-std::vector<float> Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::get_batch_metrics(std::vector<float> &losses,
-                                                                                                               std::vector<float> &accuracies) {
-  float totalLoss = 0.00;
-  for (auto &value : losses) {
-    totalLoss += value;
-  }
-  float avgLoss = totalLoss / (float) losses.size();
-
-  float totalAccuracy = 0.00;
-  for (auto &value : accuracies) {
-    totalAccuracy += value;
-  }
-  float avgAccuracy = totalAccuracy / (float) accuracies.size();
-
-  std::vector<float> metrics = {avgLoss, avgAccuracy};
-  return metrics;
+  return Metrics::get_batch_metrics(losses, accuracies);
 }
 
 template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
@@ -213,9 +200,13 @@ Trainer<TorchModule,
         Optimizer,
         Loss,
         ReturnType>::setup_data_loader(TorchDataset &dataset, int batchSize) {
-  torch::data::datasets::MapDataset<TorchDataset, BatchTransformTemplate<std::vector<torch::data::Example<>>, torch::data::Example<ReturnType, torch::Tensor>>>
 
-      datasetMap = dataset.map(BatchTransformTemplate<std::vector<torch::data::Example<>>, torch::data::Example<ReturnType, torch::Tensor>>());
+  torch::data::datasets::MapDataset<TorchDataset,
+                                    BatchTransformTemplate<std::vector<torch::data::Example<>>,
+                                                           torch::data::Example<ReturnType,
+                                                                                torch::Tensor>>>
+      datasetMap = dataset.map(BatchTransformTemplate<std::vector<torch::data::Example<>>,
+                                                      torch::data::Example<ReturnType, torch::Tensor>>());
 
   torch::data::DataLoaderOptions dataLoaderOptions = torch::data::DataLoaderOptions().batch_size(batchSize);
   auto dataLoader = torch::data::make_data_loader<Sampler>(datasetMap, dataLoaderOptions);
@@ -288,6 +279,25 @@ Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::Traine
 }
 
 template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
+Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::Trainer(TorchModule &model,
+                                                                                  TorchDataset &trainDataset,
+                                                                                  TorchDataset &evalDataset,
+                                                                                  int batchSize,
+                                                                                  Optimizer &optimizer,
+                                                                                  Loss &loss,
+                                                                                  int n_procs) {
+  if (n_procs > 1){
+    mpb = new MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>(
+        model,
+        trainDataset,
+        batchSize,
+        optimizer,
+        loss);
+
+  }
+}
+
+template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
 Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::~Trainer() = default;
 
 template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
@@ -305,6 +315,12 @@ void Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::f
       BOOST_LOG_TRIVIAL(info) << "Loss:" << evalMetrics[0] << " Accuracy:" << evalMetrics[1] << std::endl;
     }
   }
+}
+
+template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
+void Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::fit_parallel(int epochs, std::optional<int> log_from_rank) {
+  int log_from_rank_ = log_from_rank.has_value() ? log_from_rank.value() : -1;
+  mpb->fit(epochs, log_from_rank_);
 }
 
 template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
@@ -357,7 +373,6 @@ void Trainer<TorchModule, TorchDataset, Sampler, Optimizer, Loss, ReturnType>::v
   std::vector<float> evalMetrics = eval_loop();
   BOOST_LOG_TRIVIAL(info) << "Loss:" << evalMetrics[0] << " Accuracy:" << evalMetrics[1] << std::endl;
 }
-template<class TorchModule, class TorchDataset, class Sampler, class Optimizer, class Loss, class ReturnType>
 
 
 #endif//LIBTORCHPLAYGROUND_TRAINER_CPP_TRAINER_HPP_
