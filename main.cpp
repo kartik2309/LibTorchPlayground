@@ -1,7 +1,6 @@
 #include "Projects/CIFAR/CPP/Dataset/CIFARTorchDataset.h"
-#include "TorchScriptUtilities/CPP/LoadJIT/LoadJIT.h"
-#include "Trainer/CPP/Trainer.hpp"
-#include "Trainer/CPP/Utilities/MultiprocessingBackend.hpp"
+#include "Projects/CIFAR/CPP/Trainer/Trainer.hpp"
+#include "TorchScriptUtilities/LoadJIT/LoadJIT.h"
 
 int main() {
   std::string trainDatasetPath = "/Users/kartikrajeshwaran/CodeSupport/CPP/Datasets/CIFAR-10-images/train";
@@ -15,8 +14,8 @@ int main() {
   auto model = loader->get_model_ptr();
 
   std::vector<torch::Tensor> params;
-  for (auto param : model->parameters()) {
-    params.push_back(param);
+  for(auto i = model->parameters().begin(); i != model->parameters().end(); i++){
+    params.push_back(*i);
   }
 
   torch::optim::AdamWOptions adamOptions(5e-3);
@@ -38,6 +37,6 @@ int main() {
       *loss,
       4);
 
-  trainer->fit_parallel(1, 0);
+  trainer->fit_parallel(16, 0);
   return 0;
 }

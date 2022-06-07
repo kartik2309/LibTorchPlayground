@@ -2,17 +2,17 @@ cmake_minimum_required(VERSION 3.22)
 project(LibTorchPlayground)
 
 # Additional Packages
-find_package(Python3 COMPONENTS Interpreter Development)
+find_package (Python REQUIRED COMPONENTS Interpreter Development)
 
 find_package(OpenMP REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 find_package(OpenCV REQUIRED)
 
+find_package(MPI REQUIRED)
+
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-
-find_package(TorchVision REQUIRED)
 
 find_path(ONNX_RUNTIME_SESSION_INCLUDE_DIRS onnxruntime_cxx_api.h)
 find_library(ONNX_RUNTIME_LIB onnxruntime)
@@ -40,27 +40,31 @@ add_executable(
 
         Projects/CIFAR/CPP/cifar.hpp
 
-        TorchScriptUtilities/CPP/LoadJIT/LoadJIT.cpp
-        TorchScriptUtilities/CPP/LoadJIT/LoadJIT.h
+        TorchScriptUtilities/LoadJIT/LoadJIT.cpp
+        TorchScriptUtilities/LoadJIT/LoadJIT.h
 
-        Trainer/CPP/Trainer.hpp
+        Projects/CIFAR/CPP/Trainer/Trainer.hpp
 
-        Trainer/CPP/Utilities/BatchTransformTemplate.hpp
+        Trainer/Utilities/BatchTransformTemplate.hpp
 
         ONNX/Inference/Inference.cpp
         ONNX/Inference/Inference.h
-        Trainer/CPP/Utilities/MultiprocessingBackend.hpp Trainer/CPP/Utilities/Metrics/Metrics.cpp Trainer/CPP/Utilities/Metrics/Metrics.h)
+
+        Trainer/Utilities/MultiprocessingBackend.hpp
+        Trainer/Utilities/Metrics/Metrics.cpp
+        Trainer/Utilities/Metrics/Metrics.h
+
+        Trainer/TrainerBase.hpp)
 
 # Link the libraries
 #target_link_libraries(LibTorchPlayground stdc++fs)
+target_link_libraries(LibTorchPlayground Python::Python)
 target_link_libraries(LibTorchPlayground "${OpenCV_LIBRARIES}")
 target_link_libraries(LibTorchPlayground "${TORCH_LIBRARIES}")
-target_link_libraries(LibTorchPlayground Python3::Python)
-target_link_libraries(LibTorchPlayground TorchVision::TorchVision)
 target_link_libraries(LibTorchPlayground ${Boost_LOG_LIBRARY})
 target_link_libraries(LibTorchPlayground ${Boost_LOG_SETUP_LIBRARY})
 target_link_libraries(LibTorchPlayground ${Boost_LIBRARIES})
+target_link_libraries(LibTorchPlayground MPI::MPI_CXX)
 target_link_libraries(LibTorchPlayground OpenMP::OpenMP_CXX)
 target_link_libraries(LibTorchPlayground ${ONNX_RUNTIME_LIB})
-
 

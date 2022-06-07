@@ -15,7 +15,6 @@
 
 #include "BatchTransformTemplate.hpp"
 #include "Metrics/Metrics.h"
-#include <torch/torch.h>
 
 template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
 class MultiprocessingBackend {
@@ -27,10 +26,13 @@ class MultiprocessingBackend {
   int batchSize_;
   int n_procs_;
 
-  Metrics *metrics = new Metrics();
+  torch::DeviceType device_;
 
   torch::Tensor vector_to_tensor(std::vector<std::vector<float>> &vector);
   std::vector<std::vector<float>> tensor_to_vector(torch::Tensor &tensor);
+
+  void fit_with_cpu(int epochs, int log_from_rank);
+  void fit_with_cuda(int epochs, int log_from_rank);
 
  public:
   MultiprocessingBackend(TorchModule &model,
@@ -58,15 +60,6 @@ MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::Multiprocess
   optimizer_ = &optimizer;
   loss_ = &loss;
   n_procs_ = n_procs;
-
-  size_t deviceCount = torch::cuda::device_count();
-  if (deviceCount > 0) {
-
-    for (size_t deviceId; deviceId != deviceCount; deviceId++) {
-      const std::string deviceIdString = "cuda:" + std::to_string(deviceId);
-      model_->copy().to(deviceIdString);
-    }
-  }
 }
 
 template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
@@ -83,6 +76,25 @@ std::vector<std::vector<float>> MultiprocessingBackend<TorchModule, TorchDataset
 
 template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
 void MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::fit(int epochs, int log_from_rank) {
+  if (device_ == torch::kCPU) {
+    fit_with_cpu(epochs, log_from_rank);
+  } else if (device_ == torch::kCUDA) {
+    fit_with_cuda(epochs, log_from_rank);
+  }
+}
+
+template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
+torch::Tensor MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::vector_to_tensor(std::vector<std::vector<float>> &vector) {
+  std::vector<float> vector_ = vector[0];
+  std::vector<float> shape_ = vector[1];
+
+  torch::TensorOptions options = torch::TensorOptions().dtype(torch::kFloat32);
+  torch::Tensor tensor = torch::zeros(std::vector<int64_t>(shape_.begin(), shape_.end()), options);
+  std::memmove(tensor.data_ptr<float>(), vector_.data(), sizeof(float) * tensor.numel());
+  return tensor;
+}
+template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
+void MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::fit_with_cpu(int epochs, int log_from_rank) {
   boost::mpi::environment env;
   boost::mpi::communicator world;
 
@@ -103,7 +115,7 @@ void MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::fit(int
     std::vector<float> accuracies;
 
     model_->train();
-    for (int epoch; epoch != epochs; epoch++) {
+    for (int epoch = 0; epoch != epochs; epoch++) {
 
       if (log_from_rank > -1 and log_from_rank == world.rank()) {
         BOOST_LOG_TRIVIAL(info) << "EPOCH:" << epoch << std::endl;
@@ -183,15 +195,13 @@ void MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::fit(int
   }
 }
 
-template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
-torch::Tensor MultiprocessingBackend<TorchModule, TorchDataset, Optimizer, Loss>::vector_to_tensor(std::vector<std::vector<float>> &vector) {
-  std::vector<float> vector_ = vector[0];
-  std::vector<float> shape_ = vector[1];
-
-  torch::TensorOptions options = torch::TensorOptions().dtype(torch::kFloat32);
-  torch::Tensor tensor = torch::zeros(std::vector<int64_t>(shape_.begin(), shape_.end()), options);
-  std::memmove(tensor.data_ptr<float>(), vector_.data(), sizeof(float) * tensor.numel());
-  return tensor;
+  std::vector<float> trainMetrics = Metrics::get_batch_metrics(losses, accuracies);
+  if (log_from_rank > -1 and rank == log_from_rank) {
+    BOOST_LOG_TRIVIAL(info) << "Loss:" << trainMetrics[0] << " Accuracy:" << trainMetrics[1] << std::endl;
+  } else if (log_from_rank == -1) {
+    BOOST_LOG_TRIVIAL(info) << "Rank:" << rank << " Loss:" << trainMetrics[0] << " Accuracy:" << trainMetrics[1] << std::endl;
+  }
+  //#endif
 }
 
 template<class TorchModule, class TorchDataset, class Optimizer, class Loss>
