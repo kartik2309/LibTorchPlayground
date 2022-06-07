@@ -6,9 +6,8 @@ A collection of Libtorch Library based implementations with corresponding Pytorc
 Models can be prototyped in Python and exported to JIT and trained in C++ with CUDA or CPU - Multiprocessing training has
 been implemented with MPI and currently works only on CPU.
 
-Trainer is a generic class in C++ (`Trainer/CPP/Trainer/Trainer.h`) that can work with `jit::Module` and `nn::Module` in order to perform training and inference.
-Python trainer `Trainer/Python/trainer.py` can be used to perform training and inference for a model but more importantly it can be used for prototyping and exporting 
-models to `JIT` via `TorchScript`. The exported model then can be trained with C++ Trainer. Additionally Trainer C++ can be inherited if one wishes to add 
+TrainerBase is a generic class in C++ (`Trainer/TrainerBase.hpp`) that can work with `jit::Module` and `nn::Module` in order to perform training and inference.
+Python's utility in `TorchScriptUtilities/ExportJIT/` can be used to export the JIT model. Once can prototype the model before the export. The exported model then can be trained with C++ Trainer. Additionally TrainerBase C++ can be inherited if one wishes to add 
 additional features as per their use-case. Trainer supports CUDA training and inference. 
 
 
